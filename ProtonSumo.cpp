@@ -30,6 +30,9 @@ void ProtonSumo::begin()
 
     pinMode(LED_BUILTIN, OUTPUT);
 
+    pinMode(A0, INPUT);
+    pinMode(A1, INPUT);
+
     IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
 
     stop();
@@ -161,7 +164,7 @@ void ProtonSumo::enableEdgeSensor(bool state)
     edgeEnabled = state;
 }
 
-bool ProtonSumo::edgeDetected()
+bool ProtonSumo::leftEdgeDetected()
 {
     if (!edgeEnabled)
         return false;
@@ -169,6 +172,18 @@ bool ProtonSumo::edgeDetected()
     return !digitalRead(A0);
 }
 
+bool ProtonSumo::rightEdgeDetected()
+{
+    if (!edgeEnabled)
+        return false;
+
+    return !digitalRead(A1);
+}
+
+bool ProtonSumo::edgeDetected()
+{
+    return leftEdgeDetected() || rightEdgeDetected();
+}
 // ================= ULTRASONIC =============
 void ProtonSumo::enableUltrasonic(bool state)
 {
@@ -209,11 +224,63 @@ void ProtonSumo::search()
     turnLeft(70);
 }
 
+void ProtonSumo::smartDelay(unsigned long ms)
+{
+    unsigned long start = millis();
+
+    while (millis() - start < ms)
+    {
+        checkIR();
+
+        if (!running)
+        {
+            stop();
+            return;
+        }
+
+        delay(1);
+    }
+}
+
 void ProtonSumo::escapeEdge()
 {
+    bool left = leftEdgeDetected();
+    bool right = rightEdgeDetected();
+
+    if (left && right)
+    {
+        backward(100);
+        smartDelay(150);
+        stop();
+        return;
+    }
+
+    if (left)
+    {
     backward(100);
-    delay(250);
-    turnLeft(100);
-    delay(250);
+    smartDelay(100);
+
+    if (!running)
+        return;
+
+    turnRight(100);
+    smartDelay(50);
+
     stop();
+    }
+
+    if (right)
+    {
+        backward(100);
+        smartDelay(100);
+
+        if (!running)
+            return;
+
+        turnLeft(100);
+        smartDelay(50);
+
+        stop();
+        return;
+    }
 }

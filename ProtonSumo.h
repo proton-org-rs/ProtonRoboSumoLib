@@ -26,6 +26,8 @@ public:
     void turnRight(int speed);
 
     // Sensors
+    bool leftEdgeDetected();
+    bool rightEdgeDetected();
     bool edgeDetected();
     float distance();
     bool opponentDetected(float threshold = 30);
@@ -34,9 +36,12 @@ public:
     void search();
     void escapeEdge();
 
-    // Sensor toggles (NEW)
+    // Sensor toggles
     void enableEdgeSensor(bool state);
     void enableUltrasonic(bool state);
+
+    // Minimize blocking delays while still checking IR commands
+    void smartDelay(unsigned long ms);
 
 private:
     void checkIR();

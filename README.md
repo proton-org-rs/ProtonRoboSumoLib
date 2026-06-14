@@ -9,13 +9,13 @@ Biblioteka automatski kontroliše:
 * DC motore (DRV8833 driver)
 * IR prijemnik (izbor taktike, START/STOP)
 * Ultrazvučni senzor (HC-SR04)
-* IR senzor za ivicu arene
+* Leve i desne IR senzore za detekciju ivice arene
 
 ---
 
 ## Osnovni koncept
 
-Učesnici ne programiraju lowlevel funkcije robota, već definišu **do 8 taktika**, koje robot izvršava nakon izbora preko IR daljinskog upravljača.
+Učesnici ne programiraju low-level funkcije robota, već definišu **do 8 taktika**, koje robot izvršava nakon izbora preko IR daljinskog upravljača.
 
 Tok rada:
 
@@ -119,7 +119,7 @@ Direktna kontrola motora.
 ```cpp
 Sumo.setMotors('F', 100, 'F', 100);
 ```
-// NAPOMENA: trenutno je u biblioteci minimalna brzina motora 55% od maksimalne brzine motora (ukoliko nije zadat speed 0 ili veci od 56+, speed ce biti 55)
+
 ---
 
 ### `Sumo.forward(speed)`
@@ -193,8 +193,8 @@ Proverava da li je protivnik u blizini.
 Podrazumevano: **30 cm**
 
 ```cpp
-Sumo.opponentDetected();        // default 30 cm
-Sumo.opponentDetected(15);      // custom prag
+Sumo.opponentDetected();
+Sumo.opponentDetected(15);
 ```
 
 ```cpp
@@ -205,11 +205,20 @@ if (Sumo.opponentDetected()) {
 
 ---
 
-## 6. Senzor ivice arene
+## 6. Senzori ivice arene
+
+Robot koristi dva IR senzora za detekciju ivice borilišta.
+
+| Senzor                 | Pin |
+| ---------------------- | --- |
+| Levi IR Line Follower  | A0  |
+| Desni IR Line Follower | A1  |
+
+---
 
 ### `Sumo.edgeDetected()`
 
-Vraća `true` ako je detektovana ivica (crna linija).
+Vraća `true` ukoliko je bilo koji od senzora detektovao ivicu arene.
 
 ```cpp
 if (Sumo.edgeDetected()) {
@@ -219,11 +228,37 @@ if (Sumo.edgeDetected()) {
 
 ---
 
+### `Sumo.leftEdgeDetected()`
+
+Vraća `true` ukoliko je levi senzor detektovao ivicu.
+
+```cpp
+if (Sumo.leftEdgeDetected()) {
+    // leva strana robota je na ivici
+}
+```
+
+---
+
+### `Sumo.rightEdgeDetected()`
+
+Vraća `true` ukoliko je desni senzor detektovao ivicu.
+
+```cpp
+if (Sumo.rightEdgeDetected()) {
+    // desna strana robota je na ivici
+}
+```
+
+---
+
 ## 7. Pomoćne funkcije
 
 ### `Sumo.search()`
 
-Automatski režim traženja protivnika (rotacija u mestu).
+Automatski režim traženja protivnika.
+
+Podrazumevano ponašanje je rotacija u mestu radi pretrage arene.
 
 ```cpp
 Sumo.search();
@@ -233,27 +268,36 @@ Sumo.search();
 
 ### `Sumo.escapeEdge()`
 
-Automatska reakcija kada robot dođe do ivice:
+Automatska reakcija na detekciju ivice arene.
 
-* ide unazad
-* rotira se
-* nastavlja borbu
+Biblioteka koristi informacije sa oba senzora kako bi izabrala odgovarajući manevar:
+
+| Detekcija    | Reakcija                           |
+| ------------ | ---------------------------------- |
+| Levi senzor  | Kretanje unazad i skretanje udesno |
+| Desni senzor | Kretanje unazad i skretanje ulevo  |
+| Oba senzora  | Povlačenje unazad od ivice         |
+
+Primer korišćenja:
 
 ```cpp
-Sumo.escapeEdge();
+if (Sumo.edgeDetected()) {
+    Sumo.escapeEdge();
+    return;
+}
 ```
 
 ---
 
 ## 8. Upravljanje senzorima
 
-Biblioteka omogućava isključivanje senzora ako nisu fizički povezani.
+Biblioteka omogućava isključivanje senzora koji nisu povezani na robot.
 
 ---
 
 ### `Sumo.enableUltrasonic(bool state)`
 
-Uključuje/isključuje ultrazvučni senzor.
+Uključuje ili isključuje ultrazvučni senzor.
 
 ```cpp
 Sumo.enableUltrasonic(false);
@@ -268,15 +312,17 @@ Ako je isključen:
 
 ### `Sumo.enableEdgeSensor(bool state)`
 
-Uključuje/isključuje IR senzor za ivicu.
+Uključuje ili isključuje senzore za detekciju ivice arene.
 
 ```cpp
 Sumo.enableEdgeSensor(false);
 ```
 
-Ako je isključen:
+Ako su isključeni:
 
 * `edgeDetected()` uvek vraća `false`
+* `leftEdgeDetected()` uvek vraća `false`
+* `rightEdgeDetected()` uvek vraća `false`
 
 ---
 
@@ -311,7 +357,8 @@ Biblioteka koristi sledeće IR kodove:
 | START     | 0x09 |
 | STOP      | 0x0A |
 
-NIKAKO NE REGISTROVATI TAKTIKE NA 0X09 I 0X0A!!!
+**NIKAKO NE REGISTROVATI TAKTIKE NA 0x09 I 0x0A.**
+
 ---
 
 ## 11. Primer kompletne taktike
@@ -336,9 +383,9 @@ void attack()
 
 ## 12. Preporuke za učesnike
 
-* Izbegavati `delay()` funkcije u taktici
-* Uvek proveravati `edgeDetected()` pre napada
-* Koristiti `escapeEdge()` obavezno
-* Testirati taktike sa različitim konfiguracijama senzora
-
----
+* Izbegavati korišćenje `delay()` funkcije unutar taktika
+* Uvek proveravati `edgeDetected()` pre logike za napad
+* Koristiti `escapeEdge()` nakon detekcije ivice
+* Koristiti `leftEdgeDetected()` i `rightEdgeDetected()` samo kada je potrebno implementirati naprednije taktike
+* Testirati taktike sa različitim konfiguracijama senzora i protivnika
+* U slučaju da određeni senzor nije povezan, koristiti odgovarajuću funkciju za njegovo isključivanje
